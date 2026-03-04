@@ -1,49 +1,109 @@
 const express = require('express');
 const router = express.Router();
+const prisma = require('../lib/prisma');
 
-let users = [
-	{id: 1, name: 'Alice', role: 'student'},
-	{id: 2, name: 'Bob', role: 'instructor'}
-];
+router.get('/', async (req, res) => {
+	try {
+		const {role, search} = req.query;
 
-router.get('/', (req, res) => {
-	res.json({count: users.length, data: users});
+		const where = {};
+		if (role) where.role = role;
+		if (search) {
+			where.name = {contains: search, mode: 'insensitive'};
+		}
+
+		const users = await prisma.user.findMany({
+			where,
+			orderBy: {createdAt: 'desc'}
+		});
+		res.json({count: users.length, data: users});
+	} catch (error) {
+		console.error('Error', error);
+		res.status(500).json({error: 'Failed to fetch users'});
+	}
 });
 
-router.get('search/', (req, res) => {
-	const {role} = req.body;
-	const results = role ? users.filter(u => u.role === role) : users;
-	res.json({query: req.query, results});
+// router.get('search/', (req, res) => {
+// 	const {role} = req.body;
+// 	const results = role ? users.filter(u => u.role === role) : users;
+// 	res.json({query: req.query, results});
+// });
+
+router.get('/:id', async (req, res) => {
+	try {
+		const userId = parseInt(req.params.id);
+		if (isNaN(userId)) {
+			return req.status(400).json({error: 'Invalid user ID'});
+		}
+
+		const user = await prisma.user.findUnique({
+			where: {id: userId}
+		});
+		if (!user) {
+			return res.status(404).json({error: 'User not found'});
+		}
+
+		res.json(user);
+	} catch (error) {
+		res.status(500).json({error: 'Failed to fetch user'});
+	}
 });
 
-router.get('/:id', (req, res) => {
-	const user = users.find(u => u.id === parseInt(req.params.id));
-	if (!user) return res.status(404).json({error: 'Not found'});
-	res.json(user);
+router.post('/', async (req, res) => {
+	try {
+		const {email, name, role} = req.body;
+		if (!email || !name) {
+			return res.status(400).json({error: 'Email and name are required'});
+		}
+
+		const user = await prisma.user.create({
+			data: {
+				email,
+				name,
+				role: role || 'student'
+			}
+		});
+		res.status(201).json(user);
+	} catch (error) {
+		if (error.code === 'P2002') {
+			return res.status(409).json({error: 'Email already exists'});
+		}
+		res.status(500).json({error: 'Failed to create user'});
+	}
 });
 
-router.post('/', (req, res) => {
-	const {name, role} = req.body;
-	if (!name || !role) return res.status(400).json({error: 'Missing fields'});
-	const newUser = {id: users.length + 1, name, role};
-	users.push(newUser);
-	res.status(201).json(newUser);
+router.put('/:id', async (req, res) => {
+	try {
+		const userId = parseInt(req.params.id);
+		const {email, name, role} = req.body;
+
+		const user = await prisma.user.update({
+			where: {id: userId},
+			data: {email, name, role}
+		});
+		res.json(user);
+	} catch (error) {
+		if (error.code === 'P2025') {
+			return res.status(404).json({error: 'User not found'});
+		}
+		res.status(500).json({error: 'Failed to update user'});
+	}
 });
 
-router.put('/:id', (req, res) => {
-	const {name, role} = req.body;
-	const user = users.find(u => u.id === parseInt(req.params.id));
-	if (!user) return res.status(404).json({error: 'Not found'});
-	if (name) user.name = name;
-	if (role) user.role = role;
-	res.json(user);
-});
+router.delete('/:id', async (req, res) => {
+	try {
+		const userId = parseInt(req.params.id);
 
-router.delete('/:id', (req, res) => {
-	const index = users.findIndex(u => u.id === parseInt(req.params.id));
-	if (index === -1) return req.status(404).json({error: 'Not found'});
-	users.splice(index, 1);
-	res.status(204).send();
+		await prisma.user.delete({
+			where: {id: userId}
+		});
+		res.status(204).send();
+	} catch (error) {
+		if (error.code === 'P2025') {
+			return res.status(404).json({error: 'Users not found'});
+		}
+		res.status(500).json({error: 'Failed to delete user'});
+	}
 });
 
 module.exports = router;
