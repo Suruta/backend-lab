@@ -15,27 +15,28 @@ datasource db {
 
 // Define the User table
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  name      String
-  role      String    @default("student")
+  id Int @id @default(autoincrement())
+  email String @unique
+  name String
+  role String @default("student")
+  passwordHash String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  posts     Post[]
+  posts Post[]
 
   @@map("users")
 }
 
 // Define the Post table
 model Post {
-  id        Int       @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  id Int @id @default(autoincrement())
+  title String
+  content String?
+  published Boolean @default(false)
+  createdAt DateTime @default(now())
 
-  authorId  Int
-  author    User      @relation(fields: [authorId], references: [id])
+  authorId Int
+  author User @relation(fields: [authorId], references: [id])
 
   @@map("posts")
 }

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 
+const {requireAuth, requireRole} = require('../middleware/auth');
+
 router.get('/', async (req, res) => {
 	try {
 		const {role, search} = req.query;
@@ -11,6 +13,7 @@ router.get('/', async (req, res) => {
 		if (search) {
 			where.name = {contains: search, mode: 'insensitive'};
 		}
+		// console.log(where);
 
 		const users = await prisma.user.findMany({
 			where,
@@ -29,7 +32,7 @@ router.get('/', async (req, res) => {
 // 	res.json({query: req.query, results});
 // });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
 	try {
 		const userId = parseInt(req.params.id);
 		if (isNaN(userId)) {
@@ -52,6 +55,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
 	try {
 		const {email, name, role} = req.body;
+		// console.log(email, name, role);
 		if (!email || !name) {
 			return res.status(400).json({error: 'Email and name are required'});
 		}
@@ -65,6 +69,7 @@ router.post('/', async (req, res) => {
 		});
 		res.status(201).json(user);
 	} catch (error) {
+		console.log(error);
 		if (error.code === 'P2002') {
 			return res.status(409).json({error: 'Email already exists'});
 		}
@@ -72,8 +77,15 @@ router.post('/', async (req, res) => {
 	}
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
 	try {
+		const targetUserId = parseInt(req.params.id);
+		const currUserId = req.user.sub;
+		const currUserRole = req.user.role;
+		if (currUserId !== targetUserId && currUserRole !== 'admin') {
+			return res.status(403).json({error: 'You can only update your own profile'});
+		}
+
 		const userId = parseInt(req.params.id);
 		const {email, name, role} = req.body;
 
@@ -90,7 +102,7 @@ router.put('/:id', async (req, res) => {
 	}
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('instructor', 'admin'), async (req, res) => {
 	try {
 		const userId = parseInt(req.params.id);
 
