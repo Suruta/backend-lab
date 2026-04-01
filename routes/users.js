@@ -55,7 +55,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', async (req, res) => {
 	try {
 		const {email, name, role} = req.body;
-		// console.log(email, name, role);
+		console.log(email, name, role);
 		if (!email || !name) {
 			return res.status(400).json({error: 'Email and name are required'});
 		}

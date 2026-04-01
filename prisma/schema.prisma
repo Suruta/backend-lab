@@ -13,6 +13,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model ApiKey {
+  id Int @id @default(autoincrement())
+
+  userId Int @map("user_id")
+  user User @relation(fields: [userId], references: [id])
+
+  keyPrefix String @map("key_prefix")
+  keyHash String @map("key_hash")
+
+  name String @default("Default Project")
+  status String @default("active")
+  plan String @default("free")
+  monthlyQuota Int @default(100) @map("monthly_quota")
+  requestsThisMonth Int @default(0) @map("requests_this_month")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  @@map("api_keys")
+}
+
 // Define the User table
 model User {
   id Int @id @default(autoincrement())
@@ -23,6 +44,8 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   posts Post[]
+
+  apiKeys ApiKey[]
 
   @@map("users")
 }
